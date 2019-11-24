@@ -6,6 +6,7 @@ using namespace std;
 #include <fstream>
 #include <string>
 #include <set>
+#include <unordered_set>
 #include <unordered_map>
 
 class Solver {
@@ -17,19 +18,22 @@ class Solver {
 		string title_;
 		string words_;
 	};
+
 public:
-	set<Mydatabase> v;
-	using dataItem_t = pair<string, list<string>>;
-	using mainData_t = list<dataItem_t>;
-	using reverseIndex_t = unordered_multimap<string, mainData_t::iterator>;
-	mainData_t myData;
-	reverseIndex_t reverseIndex;
+	list<Mydatabase> mainData;
+	using databaseIterator_t = list<Mydatabase>::iterator;
+	databaseIterator_t cIterator;
+	set<string> cSet;
+	//using dataItem_t = list < pair<int, databaseIterator_t>>;
+	using dataItem_t = pair<string, list<databaseIterator_t>>;
+	using store_t = list<dataItem_t>;
+	using wordToArticleIndex_t = unordered_map<string, store_t::iterator>;
+	store_t store;
+	wordToArticleIndex_t wordToArticleIndex;
 	string word;
 
-
-
-
-	void processIt(char c) {
+	
+	void processIt(char c,int charCount) {
 		if (isalpha(c)) {
 			if (c >= 'A' && c <= 'Z') {
 				c += 'a' - 'A';
@@ -37,57 +41,100 @@ public:
 
 			word += c;
 		}
-		else if (word == "") {
-
-			if (reverseIndex.find(word) == reverseIndex.end()) {
-
-			}
+		else if (word != "")
+		{
+			addWord(word,charCount);
 			word = "";
 		}
 	}
-	void readWords(string& thirdLine) {
-		string word = "";
-		set<string> wordSet;
-		char c;
-		for (auto i = thirdLine.begin(); i != thirdLine.end(); i++)
-		{
-			c = *i;
-			processIt(c);
+	void addWord(string word,int charCount) {
+		if (cSet.find(word) == cSet.end()) {
+			cSet.emplace(word);
+			auto existing = wordToArticleIndex.find(word);
+			if (existing != wordToArticleIndex.end() && existing->second != store.end())
+			{
+				existing->second->second.push_back(cIterator);
+				//cout << cIterator->id_;
+			}
+			else
+			{
+				list<databaseIterator_t> newList;
+				newList.push_back(cIterator);
+				//cout << cIterator->id_;
+				dataItem_t newPair(word, newList);
+				store.push_back(newPair);
+
+				auto newItem = store.end();
+				newItem--;
+
+				wordToArticleIndex.emplace(word, newItem);
+			}
 		}
 	}
-	void readArticles(string& articles, set<Mydatabase>& database) {
+	void readWords(string& thirdLine) {
+		char c;
+		int charCount=0;
+		for (auto i = thirdLine.begin(); i != thirdLine.end(); i++)
+		{
+			
+			c = *i;
+			processIt(c,charCount); //todo charcount
+			charCount += 1;
+		}
+		addWord(word,charCount);
+	}
+	
+	void readArticles(string& articles) {
+
 		ifstream myfile(articles);
 		if (myfile.is_open())
 		{
-			string line;
 			string cID;
 			string cTitle;
 			string cText;
-
+			string line;
 			getline(myfile, line);
 			while (line != "")
 			{
+				cSet.clear();
 				cID = line;
 				getline(myfile, line);
 				cTitle = line;
 				getline(myfile, line);
 				cText = line;
+				mainData.push_back(Mydatabase{cID,cTitle,cText});
+				cIterator = mainData.end();
+				cIterator--;
 				readWords(line);
-				//add(cID,CTitle,wordVector);
-				//wordSet.clear();
+				
+				
 				getline(myfile, line);
 			}
 			myfile.close();
 		}
 	}
+
+	void find(string word) {
+		auto iteratorIntoWordToArticleIndex = wordToArticleIndex.find(word);
+		if (iteratorIntoWordToArticleIndex != wordToArticleIndex.end() &&
+			iteratorIntoWordToArticleIndex->second != store.end()){
+			auto path = iteratorIntoWordToArticleIndex->second->second;
+			for (auto&& item : path) {
+					cout << item->id_;			
+			}
+		}
+	}
 };
 int main(int argc, char** argv)
 {
-	
+	Solver solv;
 	string articles = argv[1];
+	solv.readArticles(articles);
+	
+	solv.find("to");
 	string commands;
-	if (argc > 1) { commands = argv[2]; }
-
+	if (argc > 2) { commands = argv[2]; }
+	
 
 }
 

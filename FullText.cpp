@@ -26,13 +26,19 @@ public:
 	databaseIterator_t cIterator;
 	set<string> cSet;
 	using dataItem_t = list < pair<int, databaseIterator_t>>;
-	//using dataItem_t = pair<string, list<databaseIterator_t>>;
+
 	using store_t = list<dataItem_t>;
 	using wordToArticleIndex_t = unordered_map<string, store_t::iterator>;
 	store_t store;
 	wordToArticleIndex_t wordToArticleIndex;
-	string word;
-
+	string Cword;
+	bool areAllWordsInAnyArticle = true;
+	using sAndIt_t = list<pair<string, dataItem_t::iterator>>;
+	sAndIt_t searchedWordsAndIterators;
+	using wordToIt_t = unordered_map<string, sAndIt_t::iterator>;
+	wordToIt_t wordToItIndex;
+	string searchedWord;
+	string firstWord="";
 
 	void processIt(char c, int charCount)
 	{
@@ -42,12 +48,12 @@ public:
 				c += 'a' - 'A';
 			}
 
-			word += c;
+			Cword += c;
 		}
-		else if (word != "")
+		else if (Cword != "")
 		{
-			addWord(word, charCount - word.size());
-			word = "";
+			addWord(Cword, charCount - Cword.size());
+			Cword = "";
 		}
 	}
 	void addWord(string word, int charCount)
@@ -82,15 +88,14 @@ public:
 		for (auto i = thirdLine.begin(); i != thirdLine.end(); i++)
 		{
 			c = *i;
-			processIt(c, charCount); //todo charcount
+			processIt(c, charCount);
 			charCount += 1;
 		}
-		addWord(word, charCount - word.size());
+		addWord(Cword, charCount - Cword.size());
 	}
 
 	void readArticles(string& articles)
 	{
-
 		ifstream myfile(articles);
 		if (myfile.is_open())
 		{
@@ -132,6 +137,149 @@ public:
 			}
 		}
 	}
+	void readSearchedWords(string line)
+	{
+		char c;
+		for (auto i = line.begin(); i != line.end(); i++)
+		{
+			c = *i;
+			if (isalpha(c)) {
+				if (c >= 'A' && c <= 'Z')
+				{
+					c += 'a' - 'A';
+				}
+
+				searchedWord += c;
+			}
+			else if ((searchedWord != "") && (wordToItIndex.find(searchedWord)==wordToItIndex.end()))
+			{
+				if (wordToArticleIndex.find(searchedWord) != wordToArticleIndex.end())
+				{
+					addSearchedWord(searchedWord);
+				}
+				else
+				{
+					areAllWordsInAnyArticle = false;
+				}
+			}
+		}
+	}
+	void addSearchedWord(string word) {
+		auto existing = wordToArticleIndex.find(word);
+		if (existing != wordToArticleIndex.end()) {
+			if (firstWord == "")
+			{
+				firstWord = word;
+			}
+			searchedWordsAndIterators.push_back({ word,wordToArticleIndex.find(word)->second->begin() });
+			sAndIt_t::iterator x = searchedWordsAndIterators.end();
+			x--;
+			wordToItIndex.insert({ word,x });
+			searchedWord = "";
+		}
+	}
+	void intersection() {
+		bool isEnd = false;
+		while (!isEnd) {
+			string min;
+			bool areEqual = true;
+			bool isFirst = true;;
+			for (auto&& item : searchedWordsAndIterators)
+			{
+				if (item.second != (wordToArticleIndex.find(item.first))->second->end()) {
+					if (isFirst)
+					{
+						isFirst = false;
+						min = item.second->second->id_;
+					}
+					else if (item.second->second->id_ < min)
+					{
+						min = item.second->second->id_;
+						areEqual = false;
+					}
+					else if (item.second->second->id_ > min)
+					{
+						areEqual = false;
+					}
+				}
+				else
+				{
+					isEnd = true;
+				}
+
+			}
+			if (!isEnd)
+			{
+				if (areEqual)
+				{
+					cout << "[" << searchedWordsAndIterators.begin()->second->second->id_ << "] ";
+					cout << searchedWordsAndIterators.begin()->second->second->title_ << endl;
+					int x =wordToItIndex.find(firstWord)->second->second->first;
+					auto path = searchedWordsAndIterators.begin()->second->second;
+					cout << path->words_.substr(x, 75) << "..." << endl;
+
+				}
+				for (auto&& item : searchedWordsAndIterators)
+				{
+					if (item.second->second->id_ == min)
+					{
+						item.second++;
+					}
+				}
+			}
+		}
+		
+	}
+	void readCommandsFile(string source, bool isFile)
+	{
+		string line;
+		if (isFile) {
+			ifstream commandsFile(source);
+			if (commandsFile.is_open()) {
+
+				while (getline(commandsFile, line))
+				{
+					searchedWord = "";
+					firstWord = "";
+					areAllWordsInAnyArticle = true;
+					readSearchedWords(line);
+					if (searchedWord != "")
+					{
+						if (wordToArticleIndex.find(searchedWord) != wordToArticleIndex.end())
+						{
+							addSearchedWord(searchedWord);
+						}
+						else
+						{
+							areAllWordsInAnyArticle = false;
+						}
+					}
+					if (areAllWordsInAnyArticle && !searchedWordsAndIterators.empty()) 
+					{
+						intersection();
+					}
+					else if(!searchedWordsAndIterators.empty()) {
+						cout << "No results" << endl;
+					}
+					searchedWordsAndIterators.clear();
+					wordToItIndex.clear();
+					cout << endl;
+				}
+			}
+		}
+		else
+		{
+			while (getline(cin, line))
+			{
+				areAllWordsInAnyArticle = true;
+				readSearchedWords(line);
+				intersection();
+				searchedWordsAndIterators.clear();
+				wordToItIndex.clear();
+			}
+		}
+
+	}
 };
 int main(int argc, char** argv)
 {
@@ -139,12 +287,17 @@ int main(int argc, char** argv)
 	string articles = argv[1];
 	solv.readArticles(articles);
 
-	solv.find("to");
+	//solv.find("on");
 	string commands;
 	if (argc > 2)
 	{
 		commands = argv[2];
+		solv.readCommandsFile(commands, true);
 	}
+	else {
+		solv.readCommandsFile("", false);
+	}
+
 
 
 }

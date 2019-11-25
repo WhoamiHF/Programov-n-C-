@@ -10,10 +10,10 @@ using namespace std;
 #include <unordered_map>
 
 class Solver {
-	class Mydatabase
+	class Article
 	{
 	public:
-		Mydatabase(string id, string title, string& words) :id_(id), title_(title),
+		Article(string id, string title, string& words) :id_(id), title_(title),
 			words_(words) {};
 		string id_;
 		string title_;
@@ -21,26 +21,19 @@ class Solver {
 	};
 
 public:
-	list<Mydatabase> mainData;
-	using databaseIterator_t = list<Mydatabase>::iterator;
-	databaseIterator_t cIterator;
-	set<string> cSet;
+	using databaseIterator_t = list<Article>::iterator;
 	using dataItem_t = list < pair<int, databaseIterator_t>>;
-
 	using store_t = list<dataItem_t>;
 	using wordToArticleIndex_t = unordered_map<string, store_t::iterator>;
+	using sAndIt_t = vector<pair<string, dataItem_t::iterator>>;
+	using wordToIt_t = unordered_map<string, sAndIt_t::iterator>;
+
+	list<Article> mainData;
 	store_t store;
 	wordToArticleIndex_t wordToArticleIndex;
-	string Cword;
-	bool areAllWordsInAnyArticle = true;
-	using sAndIt_t = list<pair<string, dataItem_t::iterator>>;
-	sAndIt_t searchedWordsAndIterators;
-	using wordToIt_t = unordered_map<string, sAndIt_t::iterator>;
-	wordToIt_t wordToItIndex;
-	string searchedWord;
-	string firstWord="";
 
-	void processIt(char c, int charCount)
+
+	void processOneLetter(char c, int charCount,string& cWord, unordered_set<string>& addedWords, databaseIterator_t newArticle)
 	{
 		if (isalpha(c)) {
 			if (c >= 'A' && c <= 'Z')
@@ -48,29 +41,29 @@ public:
 				c += 'a' - 'A';
 			}
 
-			Cword += c;
+			cWord += c;
 		}
-		else if (Cword != "")
+		else if (cWord != "")
 		{
-			addWord(Cword, charCount - Cword.size());
-			Cword = "";
+			addWord(cWord, charCount - cWord.size(),addedWords,newArticle);
+			cWord = "";
 		}
 	}
-	void addWord(string word, int charCount)
+	void addWord(string word, int charCount,unordered_set<string>& addedWords,databaseIterator_t newArticle)
 	{
-		if (cSet.find(word) == cSet.end())
+		if (addedWords.find(word) == addedWords.end())
 		{
-			cSet.emplace(word);
+			addedWords.emplace(word);
 			auto existing = wordToArticleIndex.find(word);
 			if (existing != wordToArticleIndex.end() && existing->second != store.end())
 			{
-				existing->second->push_back({ charCount, cIterator });
+				existing->second->push_back({ charCount, newArticle });
 				//cout << cIterator->id_;
 			}
 			else
 			{
 				dataItem_t newPair;
-				newPair.push_back({ charCount,cIterator });
+				newPair.push_back({ charCount,newArticle });
 				//cout << cIterator->id_;
 				store.push_back(newPair);
 
@@ -81,17 +74,19 @@ public:
 			}
 		}
 	}
-	void readWords(string& thirdLine)
+	void readWords(string& thirdLine,databaseIterator_t newArticle)
 	{
+		unordered_set<string> addedWords;
 		char c;
+		string Cword;
 		int charCount = 0;
 		for (auto i = thirdLine.begin(); i != thirdLine.end(); i++)
 		{
 			c = *i;
-			processIt(c, charCount);
+			processOneLetter(c, charCount,Cword,addedWords,newArticle);
 			charCount += 1;
 		}
-		addWord(Cword, charCount - Cword.size());
+		addWord(Cword, charCount - Cword.size(),addedWords,newArticle);
 	}
 
 	void readArticles(string& articles)
@@ -99,23 +94,22 @@ public:
 		ifstream myfile(articles);
 		if (myfile.is_open())
 		{
-			string cID;
-			string cTitle;
-			string cText;
+			string currID;
+			string currTitle;
+			string currText;
 			string line;
 			getline(myfile, line);
 			while (line != "")
 			{
-				cSet.clear();
-				cID = line;
+				currID = line;
 				getline(myfile, line);
-				cTitle = line;
+				currTitle = line;
 				getline(myfile, line);
-				cText = line;
-				mainData.push_back(Mydatabase{ cID,cTitle,cText });
-				cIterator = mainData.end();
+				currText = line;
+				mainData.push_back(Article{ currID,currTitle,currText });
+				auto cIterator = mainData.end();
 				cIterator--;
-				readWords(line);
+				readWords(line,cIterator);
 				getline(myfile, line);
 			}
 			myfile.close();
@@ -137,9 +131,10 @@ public:
 			}
 		}
 	}
-	void readSearchedWords(string line)
+	bool readSearchedWords(string line, sAndIt_t& searchedWordsAndIterators)
 	{
 		char c;
+		string searchedWord;
 		for (auto i = line.begin(); i != line.end(); i++)
 		{
 			c = *i;
@@ -151,39 +146,35 @@ public:
 
 				searchedWord += c;
 			}
-			else if ((searchedWord != "") && (wordToItIndex.find(searchedWord)==wordToItIndex.end()))
+			if ((searchedWord != "")&&(!isalpha(c)||i ==--line.end()))
 			{
 				if (wordToArticleIndex.find(searchedWord) != wordToArticleIndex.end())
 				{
-					addSearchedWord(searchedWord);
+					addSearchedWord(searchedWord,searchedWordsAndIterators);
+					searchedWord = "";
 				}
 				else
 				{
-					areAllWordsInAnyArticle = false;
+					return 0;
 				}
 			}
 		}
+		return 1;
 	}
-	void addSearchedWord(string word) {
+	void addSearchedWord(string word,sAndIt_t& searchedWordsAndIterators) {
 		auto existing = wordToArticleIndex.find(word);
 		if (existing != wordToArticleIndex.end()) {
-			if (firstWord == "")
-			{
-				firstWord = word;
-			}
 			searchedWordsAndIterators.push_back({ word,wordToArticleIndex.find(word)->second->begin() });
 			sAndIt_t::iterator x = searchedWordsAndIterators.end();
 			x--;
-			wordToItIndex.insert({ word,x });
-			searchedWord = "";
 		}
 	}
-	void intersection() {
+	void intersection(sAndIt_t& searchedWordsAndIterators) {
 		bool isEnd = false;
 		while (!isEnd) {
 			string min;
 			bool areEqual = true;
-			bool isFirst = true;;
+			bool isFirst = true;
 			for (auto&& item : searchedWordsAndIterators)
 			{
 				if (item.second != (wordToArticleIndex.find(item.first))->second->end()) {
@@ -214,7 +205,8 @@ public:
 				{
 					cout << "[" << searchedWordsAndIterators.begin()->second->second->id_ << "] ";
 					cout << searchedWordsAndIterators.begin()->second->second->title_ << endl;
-					int x =wordToItIndex.find(firstWord)->second->second->first;
+					
+					int x = searchedWordsAndIterators.begin()->second->first;
 					auto path = searchedWordsAndIterators.begin()->second->second;
 					cout << path->words_.substr(x, 75) << "..." << endl;
 
@@ -228,87 +220,59 @@ public:
 				}
 			}
 		}
-		
+
 	}
-	void readCommandsFile(string source, bool isFile)
+	void readCommandsFile(istream& source)
 	{
+		sAndIt_t searchedWordsAndIterators;
 		string line;
-		if (isFile) {
-			ifstream commandsFile(source);
-			if (commandsFile.is_open()) {
-
-				while (getline(commandsFile, line))
-				{
-					searchedWord = "";
-					firstWord = "";
-					areAllWordsInAnyArticle = true;
-					readSearchedWords(line);
-					if (searchedWord != "")
-					{
-						if (wordToArticleIndex.find(searchedWord) != wordToArticleIndex.end())
-						{
-							addSearchedWord(searchedWord);
-						}
-						else
-						{
-							areAllWordsInAnyArticle = false;
-						}
-					}
-					if (areAllWordsInAnyArticle && !searchedWordsAndIterators.empty()) 
-					{
-						intersection();
-					}
-					else if(!searchedWordsAndIterators.empty()) {
-						cout << "No results" << endl;
-					}
-					searchedWordsAndIterators.clear();
-					wordToItIndex.clear();
-					cout << endl;
-				}
-			}
-		}
-		else
+		while (getline(source, line))
 		{
-			while (getline(cin, line))
-			{
-				areAllWordsInAnyArticle = true;
-				readSearchedWords(line);
-				intersection();
-				searchedWordsAndIterators.clear();
-				wordToItIndex.clear();
-			}
-		}
 
+			bool areAllWordsInAnyArticle = readSearchedWords(line,searchedWordsAndIterators);
+
+			if (areAllWordsInAnyArticle && !searchedWordsAndIterators.empty())
+			{
+				intersection(searchedWordsAndIterators);
+			}
+			else if (!searchedWordsAndIterators.empty()) {
+				cout << "No results" << endl;
+			}
+			searchedWordsAndIterators.clear();
+			cout << endl;
+		}
 	}
 };
 int main(int argc, char** argv)
 {
 	Solver solv;
-	string articles = argv[1];
-	solv.readArticles(articles);
-
-	//solv.find("on");
+	if (argc > 1) {
+		string articles = argv[1];
+		solv.readArticles(articles);
+	}
 	string commands;
 	if (argc > 2)
 	{
 		commands = argv[2];
-		solv.readCommandsFile(commands, true);
+		ifstream commandsFile(commands);
+		if (commandsFile.is_open()) {
+
+			solv.readCommandsFile(commandsFile);
+		}
+		commandsFile.close();
 	}
-	else {
-		solv.readCommandsFile("", false);
+	else
+	{
+		solv.readCommandsFile(cin);
 	}
-
-
-
 }
+	// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
+	// Debug program: F5 or Debug > Start Debugging menu
 
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
-
-// Tips for Getting Started: 
-//   1. Use the Solution Explorer window to add/manage files
-//   2. Use the Team Explorer window to connect to source control
-//   3. Use the Output window to see build output and other messages
-//   4. Use the Error List window to view errors
-//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
-//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file
+	// Tips for Getting Started: 
+	//   1. Use the Solution Explorer window to add/manage files
+	//   2. Use the Team Explorer window to connect to source control
+	//   3. Use the Output window to see build output and other messages
+	//   4. Use the Error List window to view errors
+	//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
+	//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file

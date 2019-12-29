@@ -10,10 +10,17 @@ using valptr = std::unique_ptr<AbstractVal>;
 class AbstractVal {
 public:
 	virtual ~AbstractVal() {}
-	virtual bool isOpeningBracket() = 0;
-	virtual bool isMultiplicationOrDivision() = 0;
 	virtual void print() = 0;
+	virtual valptr differentiate() = 0;
 	virtual valptr clone() = 0;
+};
+
+class AbstractOp :public AbstractVal {
+public:
+	AbstractOp(valptr&& left, valptr&& right) : left_(move(left)), right_(move(right)) {}
+protected:
+	valptr left_;
+	valptr right_;
 };
 
 class Seznam {
@@ -43,77 +50,141 @@ public:
 	void popTillStartOrBracket(Seznam& s) {
 		while (!pole.empty() && !pole.back()->isOpeningBracket())
 		{
-			s.pole.push_back(pole.back()->clone());
+			s.pole.push_back(move(pole.back()));
 			pole.pop_back();
 		}
 	}
 	Seznam() {}
-	Seznam(const Seznam& s) { clone(s); }
-	Seznam& operator+=(const Seznam& s) {
-		/*if (this == &s) { return *this; }
-
-		pole.clear();*/
-		clone(s);
-		return *this;
-	}
+	//Seznam(const Seznam& s) { clone(s); }
 
 private:
-	void clone(const Seznam& s) {
-		for (auto&& x : s.pole) {
-			pole.push_back(x->clone());
-		}
-	}
+	/*	void clone(const Seznam& s) {
+			for (auto&& x : s.pole) {
+				pole.push_back(x->clone());
+			}
+		}*/
 	vector<valptr> pole;
 };
 
-class CharVal : public AbstractVal {
+class VarVal : public AbstractVal {
 public:
-	bool isOpeningBracket() override
-	{
-		if (x_ == '(')
-		{
-			return true;
-		}
-		else
-		{
-			return false;
-		}
-
+	valptr differentiate() override {
+		return make_unique<DoubleVal>(1.0);
 	}
-	bool isMultiplicationOrDivision() override
-	{
-		if (x_ == '*' || x_ == '/')
-		{
-			return true;
-
-		}
-		else
-		{
-			return false;
-		}
-	}
-	CharVal(char x) : x_(x) {};
-	void print() override { std::cout << x_; }
-	std::unique_ptr<AbstractVal> clone() override {
-		return std::make_unique<CharVal>(*this);
-	}
+	void print() override { std::cout << "x"; }
+	valptr clone() override {
+		return std::make_unique<VarVal>();
+	}*/
 private:
-	char x_;
 };
+
 
 class DoubleVal : public AbstractVal {
 public:
+	valptr differentiate() override {
+		return make_unique<DoubleVal>(0.0);
+	}
 	DoubleVal(double x) : x_(x) {};
-	bool isMultiplicationOrDivision() override { return false; }
-	bool isOpeningBracket() override { return false; }
 	void print() override { std::cout << x_; }
-	std::unique_ptr<AbstractVal> clone() override {
-		return std::make_unique<DoubleVal>(*this);
+	valptr clone() override {
+		return std::make_unique<DoubleVal>(x_);
 	}
 private:
 	double x_;
 };
+class Plus :public AbstractOp {
+public:
+	Plus(valptr&& left, valptr&& right) :AbstractOp(move(left), move(right)) {}
+	valptr differentiate() override {
+		valptr leftDerivation = left_->differentiate();
+		valptr rightDerivation = right_->differentiate();
+		return make_unique<Plus>(move(leftDerivation), move(rightDerivation));
+	}
 
+	valptr clone() override {
+		return make_unique<Plus>(move(left_->clone()), move(right_->clone()));
+	}
+
+	void print() override {
+		cout << "(";
+		left_->print();
+		cout << " + ";
+		right_->print();
+		cout << ")";
+	}
+};
+class Minus :public AbstractOp {
+public:
+	Minus(valptr&& left, valptr&& right) :AbstractOp(move(left), move(right)) {}
+	valptr differentiate() override {
+		valptr leftDerivation = left_->differentiate();
+		valptr rightDerivation = right_->differentiate();
+		return make_unique<Minus>(move(leftDerivation), move(rightDerivation));
+	}
+	valptr clone() override {
+		return make_unique<Minus>(move(left_->clone()), move(right_->clone()));
+	}
+
+	void print() override {
+		cout << "(";
+		left_->print();
+		cout << " - ";
+		right_->print();
+		cout << ")";
+	}
+};
+class Multiplication :public AbstractOp {
+public:
+	Multiplication(valptr&& left, valptr&& right) :AbstractOp(move(left), move(right)) {}
+	valptr differentiate() override {
+		valptr leftDerivation = left_->differentiate();
+		valptr rightDerivation = right_->differentiate();
+		valptr leftCopy = left_->clone();
+		valptr rightCopy = right_->clone();
+		valptr leftProduct = make_unique<Multiplication>(move(leftDerivation),move(rightCopy));
+		valptr rightProduct = make_unique<Multiplication>(move(leftCopy), move(rightDerivation));
+
+		return make_unique<Plus>(move(leftProduct), move(rightProduct));
+	}
+	valptr clone() override {
+		return make_unique<Multiplication>(move(left_->clone()), move(right_->clone()));
+	}
+	void print() override {
+		cout << "(";
+		left_->print();
+		cout << " * ";
+		right_->print();
+		cout << ")";
+	}
+};
+
+class Division :public AbstractOp {
+public:
+	Division(valptr&& left, valptr&& right) :AbstractOp(move(left), move(right)) {}
+	valptr differentiate() override {
+		valptr leftDerivation = left_->differentiate();
+		valptr rightDerivation = right_->differentiate();
+		valptr leftCopy = left_->clone();
+		valptr rightCopy1 = right_->clone();
+		valptr rightCopy2 = right_->clone();
+		valptr rightCopy3 = right_->clone();
+		valptr leftProduct = make_unique<Multiplication>(move(leftDerivation), move(rightCopy1));
+		valptr rightProduct = make_unique<Multiplication>(move(leftCopy), move(rightDerivation));
+		valptr bottomProduct = make_unique<Multiplication>(move(rightCopy2), move(rightCopy3));
+		valptr numerator = make_unique<Plus>(move(leftProduct), move(rightProduct));
+		return make_unique<Division>(move(numerator), move(bottomProduct));
+	}
+	valptr clone() override {
+		return make_unique<Division>(move(left_->clone()), move(right_->clone()));
+	}
+	void print() override {
+		cout << "(";
+		left_->print();
+		cout << " / ";
+		right_->print();
+		cout << ")";
+	}
+};
 class Reader {
 public:
 	void read();
@@ -154,91 +225,79 @@ bool Reader::ProcessLine(string line) {
 	for (size_t i = 0; i < line.length(); i++)
 	{
 		char c = line[i];
-		if (isalpha(c)) {
+		if (!isspace(c)) {
 			if (c == 'x' && !expectedOperator)
 			{
 				output.add(make_unique<CharVal>(c));
 				expectedOperator = true;
 			}
+			else if (c == '.' && readingNumber && !hasDecimalPoint)
+			{
+				alreadyRead += c;
+				hasDecimalPoint = true;
+			}
+			else if (isdigit(c))
+			{
+				readingNumber = true;
+				alreadyRead += c;
+			}
 			else
 			{
-				return false;
-			}
-		}
-		if (c == '.' && readingNumber && !hasDecimalPoint)
-		{
-			alreadyRead += c;
-		}
-		else if (isdigit(c))
-		{
-			readingNumber = true;
-			alreadyRead += c;
-		}
-		else
-		{
-			if (readingNumber)
-			{
-				if (expectedOperator)
+				if (readingNumber)
 				{
-					return false;
+					if (expectedOperator)
+					{
+						return false;
+					}
+					readingNumber = false;
+					expectedOperator = true;
+					double added = stod(alreadyRead);
+					output.add(make_unique<DoubleVal>(added));
+					alreadyRead = "";
+					hasDecimalPoint = false;
 				}
-				readingNumber = false;
-				expectedOperator = true;
-				double added = stod(alreadyRead);
-				output.add(make_unique<DoubleVal>(added));
-				alreadyRead = "";
-			}
-			if (c == '(')
-			{
-				if (expectedOperator)
-				{
-					return false;
-				}
-				stack.add(make_unique<CharVal>(c));
-				alreadyMultiplicationOrDivision = false;
-				openedBrackets += 1;
-			}
-			else if (c == ')')
-			{
 
-				openedBrackets -= 1;
-				if (openedBrackets < 0 || !expectedOperator) {
-					return false;
-				}
-				else
+				if (c == '(' && !expectedOperator)
 				{
+					stack.add(make_unique<CharVal>(c));
+					alreadyMultiplicationOrDivision = false;
+					openedBrackets += 1;
+				}
+				else if (c == ')' && (openedBrackets >= 1) && expectedOperator)
+				{
+
+					openedBrackets -= 1;
 					stack.popTillStartOrBracket(output);
 					stack.pop();
 					alreadyMultiplicationOrDivision = stack.isDivisionOrMultiplication();
-				}
 
-			}
-			else if (c == '*' || c == '/' || c == '-' || c == '+')
-			{
-				if (!expectedOperator)
+				}
+				else if ((c == '*' || c == '/' || c == '-' || c == '+') && expectedOperator)
 				{
+					expectedOperator = false;
+
+					if (alreadyMultiplicationOrDivision || ((c == '+' || c == '-') && alreadySumOrDifference)) {
+						stack.popTillStartOrBracket(output);
+						alreadyMultiplicationOrDivision = false;
+						alreadySumOrDifference = false;
+					}
+
+					if (c == '*' || c == '/')
+					{
+						alreadyMultiplicationOrDivision = true;
+					}
+					else
+					{
+						alreadySumOrDifference = true;
+					}
+					stack.add(make_unique<CharVal>(c));
+				}
+				else {
 					return false;
 				}
-				expectedOperator = false;
-
-				if (alreadyMultiplicationOrDivision || ((c == '+' || c == '-') && alreadySumOrDifference)) {
-					stack.popTillStartOrBracket(output);
-					alreadyMultiplicationOrDivision = false;
-					alreadySumOrDifference = false;
-				}
-
-				if (c == '*' || c == '/')
-				{
-					alreadyMultiplicationOrDivision = true;
-				}
-				else
-				{
-					alreadySumOrDifference = true;
-				}
-				stack.add(make_unique<CharVal>(c));
 			}
-		}
 
+		}
 	}
 	if (readingNumber) {
 		if (expectedOperator) {

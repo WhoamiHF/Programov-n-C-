@@ -3,6 +3,8 @@
 #include <tuple>
 #include <vector>
 #include <utility>
+#include<string>
+#include <cassert>
 #include <unordered_map>
 
 template<typename t>
@@ -62,13 +64,13 @@ private:
 		(std::get<sq>(t).push_back(columns), ...);
 	}
 };
-template<typename graphSchema>
+template<class graphSchema>
 class edge_t;
 
-template<typename graphSchema>
+template<class graphSchema>
 class vertex_t;
 
-template<typename graphSchema>
+template<class graphSchema>
 class edges_t {
 public:
 	edges_t(graph_db<graphSchema>& database_) :database(database_) {}
@@ -84,16 +86,16 @@ public:
 		edges.push_back(elem&);
 	}*/
 private:
-	tupleToColumns<typename graphSchema::edges_property_t> properties;
+	tupleToColumns<typename graphSchema::edge_property_t> properties;
 	graph_db<graphSchema>& database;
-	std::vector<typename graphSchema::edges_user_id_t> indexToID;
+	std::vector<typename graphSchema::edge_user_id_t> indexToID;
 	//std::unordered_map<eUser_t, size_t> IDs;
 	std::vector<size_t> startVertices;
 	std::vector<size_t> endVertices;
 };
 
 
-template<typename graphSchema>
+template<class graphSchema>
 class edge_t {
 public:
 	edge_t(size_t index_, edges_t<graphSchema>& edges_) :index(index_), edges(edges_) {}
@@ -169,10 +171,10 @@ private:
 	edges_t<graphSchema>& edges;
 };
 
-template<typename graphSchema>
+template<class graphSchema>
 class vertex_t;
 
-template<typename graphSchema>
+template<class graphSchema>
 class vertices_t {
 public:
 	vertices_t(graph_db<graphSchema>& database_) :database(database_) {}
@@ -187,7 +189,7 @@ private:
 template<class pointed>
 class iterator;
 
-template<typename graphSchema>
+template<class graphSchema>
 class vertex_t {
 public:
 	vertex_t(size_t index_, edges_t<graphSchema>& edges_, vertices_t<graphSchema>& vertices_) :
@@ -335,6 +337,41 @@ public:
 	vertices_t<graphSchema>& vertices;
 };
 
+template<typename graphSchema>
+class edge_it {
+public:
+	edge_it(edges_t<graphSchema>& edges_, size_t position_) :edges(edges_), position(position_) {}
+
+	edge_t<graphSchema> operator*() {
+		return edges.database.getEdge(position);
+	}
+
+	bool operator==(const edge_it& other) const {
+		if (&(this->edges) == &(other.edges)) {
+			if (other.position < other.edges.indexToID.size()) {
+				return other.position == this->position;
+			}
+			else {
+				return (this->position >= this->edges.indexToID.size());
+			}
+		}
+		else {
+			return false;
+		}
+	}
+	bool operator!=(const edge_it& other) const {
+		return !(*this == other);
+	}
+	edge_it& operator++() { position++; return *this; }
+	edge_it operator++(int) {
+		edge_it temp = *this;
+		++* this;
+		return temp;
+	}
+	size_t position;
+	edges_t<graphSchema>& edges;
+};
+
 /**
  * @brief A graph database that takes its schema (types and number of vertex/edge properties, user id types) from a given trait
  * @tparam GraphSchema A trait which specifies the schema of the graph database.
@@ -371,13 +408,13 @@ public:
 	 * @brief A type representing a edge iterator. Must be at least an output iterator. Returned value_type is an edge.
 	 * @note Iterate in insertion order.
 	 */
-	 //using edge_it_t =
+	using edge_it_t = edge_it<GraphSchema>;
 
 	 /**
 	  * @brief A type representing a neighbor iterator. Must be at least an output iterator. Returned value_type is an edge.
 	  * @note Iterate in insertion order.
 	  */
-	using neighbor_it_t = vertex_t::neighbor_it_t;
+	using neighbor_it_t = typename vertex_t::neighbor_it_t;
 
 	/**
 	 * @brief Insert a vertex into the database.
@@ -388,11 +425,13 @@ public:
 	vertex_t add_vertex(typename GraphSchema::vertex_user_id_t&& vuid) {
 		vertices.indexToID.push_back(forward(vuid));
 		vertices.neighbors.push_back(std::vector<size_t>());
+		//addEmptyProperties 
 		return vertex_t(vertices.indexToID.size() - 1, edges, vertices);
 	}
 	vertex_t add_vertex(const typename GraphSchema::vertex_user_id_t& vuid) {
 		vertices.indexToID.push_back(vuid);
 		vertices.neighbors.push_back(std::vector<size_t>());
+		//addEmptyProperties 
 		return vertex_t(vertices.indexToID.size() - 1, edges, vertices);
 	}
 
@@ -426,7 +465,7 @@ public:
 	 */
 	std::pair<vertex_it_t, vertex_it_t> get_vertexes() const {
 		vertex_it_t beg(vertices, 0);
-		vertex_it_t fin(vertices, vertices.indexToID.size());
+		vertex_it_t fin(vertices, vertices.indexToID.size()-1);
 		return std::make_pair(beg, fin);
 	}
 
@@ -442,6 +481,7 @@ public:
 		edges.indexToID.push_back(euid);
 		edges.startVertices.push_back(v1);
 		edges.endVertices.push_back(v2);
+		//addEmptyProperties 
 		vertices.neighbors[v1].pushback(edges.indexToID.size() - 1);
 		return edge_t(edges.indexToID.size() - 1, edges, vertices);
 	}
@@ -449,7 +489,8 @@ public:
 		edges.indexToID.push_back(std::forward(euid));
 		edges.startVertices.push_back(v1);
 		edges.endVertices.push_back(v2);
-		vertices.neighbors[v1].pushback(edges.indexToID.size - 1);
+		//addEmptyProperties 
+		vertices.neighbors[v1].pushback(edges.indexToID.size() - 1);
 		return edge_t(edges.indexToID.size() - 1, edges, vertices);
 	}
 
@@ -464,16 +505,34 @@ public:
 	 * @note Should not compile if not provided with all properties.
 	 */
 	template<typename ...Props>
-	edge_t add_edge(typename GraphSchema::edge_user_id_t&& euid, const vertex_t& v1, const vertex_t& v2, Props&&...props);
+	edge_t add_edge(typename GraphSchema::edge_user_id_t&& euid, const vertex_t& v1, const vertex_t& v2, Props&&...props) {
+		edges.indexToID.push_back(euid);
+		edges.startVertices.push_back(v1);
+		edges.endVertices.push_back(v2);
+		edges.properties.add(props);
+		vertices.neighbors[v1].pushback(edges.indexToID.size() - 1);
+		return edge_t(edges.indexToID.size() - 1, edges, vertices);
+	}
 	template<typename ...Props>
-	edge_t add_edge(const typename GraphSchema::edge_user_id_t& euid, const vertex_t& v1, const vertex_t& v2, Props&&...props);
+	edge_t add_edge(const typename GraphSchema::edge_user_id_t& euid, const vertex_t& v1, const vertex_t& v2, Props&&...props) {
+		edges.indexToID.push_back(forward(euid));
+		edges.startVertices.push_back(v1);
+		edges.endVertices.push_back(v2);
+		edges.properties.add(props);
+		vertices.neighbors[v1].pushback(edges.indexToID.size() - 1);
+		return edge_t(edges.indexToID.size() - 1, edges, vertices);
+	}
 
 	/**
 	 * @brief Returns begin() and end() iterators to all edges in the database.
 	 * @return A pair<begin(), end()> of edge iterators.
 	 * @note The iterator can iterate in any order.
 	 */
-	std::pair<edge_it_t, edge_it_t> get_edges() const;
+	std::pair<edge_it_t, edge_it_t> get_edges() const {
+		edge_it_t beg(edges, 0);
+		edge_it_t fin(edges, edges.indexToID.size() - 1);
+		return std::make_pair(beg, fin);
+	}
 private:
 	edges_t<typename GraphSchema> edges;
 	vertices_t<typename GraphSchema> vertices;

@@ -178,8 +178,12 @@ template<class GraphSchema>
 class vertex_class_t;
 
 template<class GraphSchema>
+class neighbor_it;
+
+template<class GraphSchema>
 class vertices_class_t {
 public:
+	friend neighbor_it<GraphSchema>;
 	friend vertex_it<GraphSchema>;
 	friend graph_db<GraphSchema>;
 	vertices_class_t(graph_db<GraphSchema>& database_) :database(database_) {}
@@ -194,6 +198,53 @@ private:
 template<class pointed>
 class iterator;
 
+template<class GraphSchema>
+class neighbor_it {
+public:
+	neighbor_it(std::vector<size_t>& object_, size_t position_, vertices_class_t<GraphSchema>& vertices_) :object(object_), position(position_), vertices(vertices_) {}
+	neighbor_it(const neighbor_it<GraphSchema>& other) :object(other.object), position(other.position), vertices(other.vertices) {}
+	neighbor_it<GraphSchema> operator=(const neighbor_it& other) const {
+		object = other.object;
+		position = other.position;
+		vertices = other.vertices;
+		return *this;
+	}
+	void swap(neighbor_it<GraphSchema>& other) {
+		auto tmp = other;
+		other = *this;
+		*this = tmp;
+	}
+	edge_class_t<GraphSchema> operator*() {
+		size_t ind = object[position];
+		return vertices.database.getEdge(ind);
+	}
+
+	bool operator==(const neighbor_it<GraphSchema>& other) const {
+		if (&(this->object) == &(other.object)) {
+			if (other.position < other.object.size()) {
+				return other.position == this->position;
+			}
+			else {
+				return (this->position >= this->object.size());
+			}
+		}
+		else {
+			return false;
+		}
+	}
+	bool operator!=(const neighbor_it<GraphSchema>& other) const {
+		return !(*this == other);
+	}
+	neighbor_it<GraphSchema>& operator++() { position++; return *this; }
+	neighbor_it<GraphSchema> operator++(int) {
+		neighbor_it<GraphSchema> temp = *this;
+		++* this;
+		return temp;
+	}
+	size_t position;
+	std::vector<size_t>& object;
+	vertices_class_t<GraphSchema>& vertices;
+};
 template<class GraphSchema>
 class vertex_class_t {
 public:
@@ -254,53 +305,7 @@ public:
 	/**
 	 * @see graph_db::neighbor_it_t
 	 */
-	class neighbor_it_t {
-	public:
-		neighbor_it_t(std::vector<size_t>& object_, size_t position_, vertices_class_t<GraphSchema>& vertices_) :object(object_), position(position_), vertices(vertices_) {}
-		neighbor_it_t(const neighbor_it_t& other) :object(other.object), position(other.position), vertices(other.vertices) {}
-		neighbor_it_t operator=(const neighbor_it_t& other) const {
-			object = other.object;
-			position = other.position;
-			vertices = other.vertices;
-			return *this;
-		}
-		void swap(neighbor_it_t& other) {
-			auto tmp = other;
-			other = *this;
-			*this = tmp;
-		}
-		edge_class_t<GraphSchema> operator*() {
-			size_t ind = object[position];
-			return vertices.database.getEdge(ind);
-		}
-
-		bool operator==(const neighbor_it_t& other) const {
-			if (&(this->object) == &(other.object)) {
-				if (other.position < other.object.size()) {
-					return other.position == this->position;
-				}
-				else {
-					return (this->position >= this->object.size());
-				}
-			}
-			else {
-				return false;
-			}
-		}
-		bool operator!=(const neighbor_it_t& other) const {
-			return !(*this == other);
-		}
-		neighbor_it_t& operator++() { position++; return *this; }
-		neighbor_it_t operator++(int) {
-			neighbor_it_t temp = *this;
-			++* this;
-			return temp;
-		}
-		size_t position;
-		std::vector<size_t>& object;
-		vertices_class_t<GraphSchema>& vertices;
-	};
-
+	using neighbor_it_t = neighbor_it<GraphSchema>;
 
 
 	/**
@@ -459,7 +464,7 @@ public:
 	 * @brief A type representing a neighbor iterator. Must be at least an output iterator. Returned value_type is an edge.
 	 * @note Iterate in insertion order.
 	 */
-	using neighbor_it_t = typename vertex_t::neighbor_it_t;
+	using neighbor_it_t = typename neighbor_it<GraphSchema>;
 
 	/**
 	 * @brief Insert a vertex into the database.

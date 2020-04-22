@@ -149,7 +149,7 @@ public:
 	 */
 	template<size_t I, typename PropType>
 	void set_property(const PropType& prop) {
-		edges.properties.set<I>(index, prop);
+		edges.properties.template set<I>(index, prop);
 	}
 
 	/**
@@ -257,7 +257,7 @@ public:
 	class neighbor_it_t {
 	public:
 		neighbor_it_t(std::vector<size_t>& object_, size_t position_, vertices_class_t<GraphSchema>& vertices_) :object(object_), position(position_), vertices(vertices_) {}
-		neighbor_it_t(neighbor_it_t& other) :object(other.object), position(other.position), vertices(other.vertices) {}
+		neighbor_it_t(const neighbor_it_t& other) :object(other.object), position(other.position), vertices(other.vertices) {}
 		neighbor_it_t operator=(const neighbor_it_t& other) const {
 			object = other.object;
 			position = other.position;
@@ -310,8 +310,8 @@ public:
 	 */
 
 	std::pair<neighbor_it_t, neighbor_it_t> edges() const {
-		neighbor_it_t beg(vertices.neighbors[index], 0, vertices);
-		neighbor_it_t fin(vertices.neighbors[index], vertices.neighbors[index].size(), vertices);  //q
+		neighbor_it_t beg(const_cast<std::vector<size_t>&>(vertices.neighbors[index]), 0, const_cast<vertices_class_t<GraphSchema>&>(vertices));
+		neighbor_it_t fin(const_cast<std::vector<size_t>&>(vertices.neighbors[index]), vertices.neighbors[index].size(), const_cast<vertices_class_t<GraphSchema>&>(vertices));
 		return std::make_pair(beg, fin);
 	}
 
@@ -408,7 +408,7 @@ public:
 		return temp;
 	}
 	size_t position;
-	graph_db<GraphSchema>& graph;
+	graph_db<GraphSchema>* graph;
 };
 
 /**

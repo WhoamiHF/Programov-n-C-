@@ -81,6 +81,9 @@ template<class GraphSchema>
 class vertex_it;
 
 template<class GraphSchema>
+class neighbor_it;
+
+template<class GraphSchema>
 class edges_class_t {
 public:
 	edges_class_t(graph_db<GraphSchema>& database_) :database(database_) {}
@@ -92,7 +95,6 @@ private:
 	tupleToColumns<typename GraphSchema::edge_property_t> properties;
 	graph_db<GraphSchema>& database;
 	std::vector<typename GraphSchema::edge_user_id_t> indexToID;
-	//std::unordered_map<eUser_t, size_t> IDs;
 	std::vector<size_t> startVertices;
 	std::vector<size_t> endVertices;
 };
@@ -174,11 +176,6 @@ private:
 	edges_class_t<GraphSchema>& edges;
 };
 
-template<class GraphSchema>
-class vertex_class_t;
-
-template<class GraphSchema>
-class neighbor_it;
 
 template<class GraphSchema>
 class vertices_class_t {
@@ -194,9 +191,6 @@ private:
 	std::vector<typename GraphSchema::vertex_user_id_t> indexToID;
 	graph_db<GraphSchema>& database;
 };
-
-template<class pointed>
-class iterator;
 
 template<class GraphSchema>
 class neighbor_it {
@@ -330,7 +324,7 @@ template<typename GraphSchema>
 class vertex_it {
 public:
 	vertex_it(graph_db<GraphSchema>* graph_, size_t position_) :graph(graph_), position(position_) {}
-	vertex_it(const vertex_it<GraphSchema>& other):position(other.position),graph(other.graph){}
+	vertex_it(const vertex_it<GraphSchema>& other) :position(other.position), graph(other.graph) {}
 	vertex_it<GraphSchema> operator=(const vertex_it<GraphSchema>& other) const {
 		position = other.position;
 		graph = other.graph;
@@ -347,7 +341,7 @@ public:
 
 	bool operator==(const vertex_it<GraphSchema>& other) const {
 		if (this->graph == other.graph) {
-			if (other.position < graph->vertices.indexToID.size()){
+			if (other.position < graph->vertices.indexToID.size()) {
 				return other.position == this->position;
 			}
 			else {
@@ -387,16 +381,16 @@ public:
 		*this = tmp;
 	}
 	edge_class_t<GraphSchema> operator*() {
-		return graph.getEdge(position);
+		return graph->getEdge(position);
 	}
 
 	bool operator==(const edge_it<GraphSchema>& other) const {
-		if (this.graph == other.graph) {
-			if (other.position < graph.edges.indexToID.size()) {
+		if (this->graph == other.graph) {
+			if (other.position < graph->edges.indexToID.size()) {
 				return other.position == this->position;
 			}
 			else {
-				return (this->position >= this->graph.edges.indexToID.size());
+				return (this->position >= this->graph->edges.indexToID.size());
 			}
 		}
 		else {
@@ -429,7 +423,7 @@ public:
 	friend edges_class_t<GraphSchema>;//
 	friend vertex_it<GraphSchema>;
 	friend edge_it<GraphSchema>;
-	graph_db() :edges(edges_class_t(*this)), vertices(vertices_class_t(*this)) {}
+	graph_db() :edges(edges_class_t<GraphSchema>(*this)), vertices(vertices_class_t<GraphSchema>(*this)) {}
 	/**
 	 * @brief A type representing a vertex.
 	 * @see vertex
@@ -464,7 +458,7 @@ public:
 	 * @brief A type representing a neighbor iterator. Must be at least an output iterator. Returned value_type is an edge.
 	 * @note Iterate in insertion order.
 	 */
-	using neighbor_it_t = typename neighbor_it<GraphSchema>;
+	using neighbor_it_t = neighbor_it<GraphSchema>;
 
 	/**
 	 * @brief Insert a vertex into the database.
@@ -515,7 +509,6 @@ public:
 	 */
 	std::pair<vertex_it_t, vertex_it_t> get_vertexes() const {
 		return std::make_pair(vertex_it(const_cast<graph_db<GraphSchema>*>(this), 0), vertex_it(const_cast<graph_db<GraphSchema>*>(this), vertices.indexToID.size()));
-
 	}
 
 	/**
@@ -579,7 +572,7 @@ public:
 	 */
 	std::pair<edge_it_t, edge_it_t> get_edges() const {
 		return std::make_pair(edge_it(const_cast<graph_db<GraphSchema>*>(this), 0), edge_it(const_cast<graph_db<GraphSchema>*>(this), edges.indexToID.size()));
-		
+
 	}
 private:
 	edges_class_t<GraphSchema> edges;

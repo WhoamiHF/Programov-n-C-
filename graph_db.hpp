@@ -2,12 +2,8 @@
 #define GRAPH_DB_HPP
 #include <tuple>
 #include <vector>
-#include <utility>
-#include<string>
+#include <string>
 #include <unordered_map>
-
-template<typename t>
-class tupleToColumns;
 
 template<class GraphSchema>
 class graph_db;
@@ -27,8 +23,11 @@ class vertex_it;
 template<class GraphSchema>
 class neighbor_it;
 
+template<typename t>
+class columnsTable;
+
 template<typename ... Ts>
-class tupleToColumns<std::tuple<Ts ...>> 
+class columnsTable<std::tuple<Ts ...>> 
 {
 public:
 	template<size_t I>
@@ -42,12 +41,12 @@ public:
 
 	auto getRow(size_t index) 
 	{
-		return getRow2(std::make_index_sequence<sizeof ... (Ts)>(), index);
+		return getRowWithSequence(std::make_index_sequence<sizeof ... (Ts)>(), index);
 	}
 
 	void setRow(size_t index, Ts ... values) 
 	{
-		setRow2(std::make_index_sequence<sizeof ... (Ts)>(), index, values ...);
+		setRowWithSequence(std::make_index_sequence<sizeof ... (Ts)>(), index, values ...);
 	}
 
 	template<size_t I>
@@ -58,7 +57,7 @@ public:
 
 	void add(Ts... columns)
 	{
-		add2(columns ..., std::make_index_sequence<sizeof ... (Ts)>());
+		addWithSequence(columns ..., std::make_index_sequence<sizeof ... (Ts)>());
 	}
 	template<size_t ... sq>
 	void addEmpty(std::index_sequence<sq ...>)
@@ -69,17 +68,17 @@ private:
 	std::tuple<std::vector<Ts> ...> table;
 
 	template<size_t ... sq>
-	void setRow2(std::index_sequence<sq ...>, size_t index, Ts ... values)
+	void setRowWithSequence(std::index_sequence<sq ...>, size_t index, Ts ... values)
 	{
 		(set<sq>(index, values), ...);
 	}
 	template<size_t ... sq>
-	std::tuple<Ts ...> getRow2(std::index_sequence<sq ...>, size_t index)
+	std::tuple<Ts ...> getRowWithSequence(std::index_sequence<sq ...>, size_t index)
 	{
 		return std::tuple<Ts ...>{ get<sq>(index)... };
 	}
 	template<size_t ... sq>
-	void add2(Ts... columns, std::index_sequence<sq ...>)
+	void addWithSequence(Ts... columns, std::index_sequence<sq ...>)
 	{
 		(std::get<sq>(table).push_back(columns), ...);
 	}
@@ -94,7 +93,7 @@ public:
 	friend edge_it<GraphSchema>;
 
 private:
-	tupleToColumns<typename GraphSchema::edge_property_t> properties;
+	columnsTable<typename GraphSchema::edge_property_t> properties;
 	graph_db<GraphSchema>& database;
 	std::vector<typename GraphSchema::edge_user_id_t> indexToID;
 	std::vector<size_t> startVertices;
@@ -190,7 +189,7 @@ public:
 	friend vertex_class_t<GraphSchema>;
 private:
 	std::vector<std::vector<size_t>> neighbors;
-	tupleToColumns<typename GraphSchema::vertex_property_t> properties;
+	columnsTable<typename GraphSchema::vertex_property_t> properties;
 	std::vector<typename GraphSchema::vertex_user_id_t> indexToID;
 	graph_db<GraphSchema>& database;
 };

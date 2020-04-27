@@ -16,10 +16,10 @@ using namespace std;
 namespace fs = std::filesystem;
 class single {
 public:
-	single(string word_, list<string>& translations_) :word(word_), translations(translations_), score(0) {}
+	single(string word_, set<string>& translations_) :word(word_), translations(translations_), score(0) {}
 	string word;
 	int score;
-	list<string> translations;
+	set<string> translations;
 };
 
 class dictionary {
@@ -29,8 +29,8 @@ public:
 	void createTest();
 	void testWord(int index,vector<single>& data);
 	void showMenu();
-	void deleteTranslations(string word, list<string>& translations);
-	void add(string word, list<string>& translations, vector<single>& whereTo);
+	void deleteTranslations(string word, set<string>& translations);
+	void add(string word, set<string>& translations, vector<single>& whereTo);
 	void printEvery(vector<single>& fromWhere);
 	vector<single> mainData;
 	void printListOfAllFiles();
@@ -48,11 +48,11 @@ void dictionary::showMenu() {
 	cout << "type 'end' to end program" << endl;
 	//string 
 }
-void dictionary::add(string word, list<string>& translations, vector<single>& whereTo) {
+void dictionary::add(string word, set<string>& translations, vector<single>& whereTo) {
 	if (wordToIndex.find(word) != wordToIndex.end()) {
 		auto element = wordToIndex.find(word)->second->translations;
 		for (auto item : translations) {
-			element.push_back(item);
+			element.emplace(item);
 		}
 	}
 	else {
@@ -88,17 +88,28 @@ void dictionary::createTest() {
 	printEvery(mainData);
 }
 
-void dictionary::deleteTranslations(string word,list<string>& translations ) {
-	set<string> s; // translation set?
+void dictionary::deleteTranslations(string word,set<string>& translations ) {
 	auto elem = wordToIndex.find(word);
 	if (elem != wordToIndex.end()) {
+		auto tr = elem->second->translations;
 		list<string>::iterator delIt;
 		for (auto&& translationToDelete : translations) {
-			for (auto translationFromList : elem->second->translations) {
-				if (translationToDelete == translationFromList) {
-					//delIt = 
-				}
+			auto delIt = tr.find(translationToDelete);
+			if (delIt != tr.end()) {
+				tr.erase(delIt);
 			}
+		}
+
+		if (tr.empty()) {
+			cout << "You have deleted every translation." << endl;
+			wordToIndex.erase(elem);
+		}
+		else {
+			cout << " these translations are left:";
+			for (auto item : tr) {
+				cout << item<<" ";
+			}
+			cout << endl;
 		}
 	}
 }
@@ -107,7 +118,7 @@ void dictionary::testWord(int index,vector<single>& data) {
 	string answer;
 	cin >> answer;
 	bool correct = false;
-	cout << "Possible answers: ";
+	cout << "Possible answer(s): ";
 	for (auto item : data[index].translations) {
 		cout << item << " ";
 		if (item == answer) {
@@ -135,12 +146,12 @@ void dictionary::read(string f) {
 	myfile.open(f);
 	string s;
 	string word("");
-	list<string> translations;
+	set<string> translations;
 	while (myfile >> s) {
 		char t = s[s.size() - 1];
 		if (t == ',') {
 			s = s.substr(0, s.size() - 1);
-			translations.push_back(s);
+			translations.emplace(s);
 			if (f[f.size() - 5] == 'B')
 			{
 				add(word, translations, mainData);
@@ -158,7 +169,7 @@ void dictionary::read(string f) {
 			}
 			else
 			{
-				translations.push_back(s);
+				translations.emplace(s);
 			}
 		}
 	}

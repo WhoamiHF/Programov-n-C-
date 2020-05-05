@@ -64,14 +64,12 @@ public:
 			{
 				std::lock_guard<std::mutex> lock(mutexesToLeft[index]);
 				channelsToLeft[index].push(std::vector<ET>(storage.thisPart.begin(), storage.thisPart.begin() + G));
-				notificationsToLeft[index] = true;
 			}
 			cond_variables_to_left[index].notify_one();
 			// uses index of thread, for each two neighbor threads there are two channels - toLeft and toRight
 			{
 				std::lock_guard<std::mutex> lock(mutexesToRight[index]);
 				channelsToRight[index].push(std::vector<ET>(storage.thisPart.end() - G, storage.thisPart.end()));
-				notificationsToRight[index] = true;
 			}
 			cond_variables_to_right[index].notify_one();
 			//recieving   @todo:notifications - not needed 
@@ -80,30 +78,22 @@ public:
 			{
 				size_t indexRight = (index + 1) % threads;
 				std::unique_lock<std::mutex> lock(mutexesToLeft[indexRight]);
-				while (!notificationsToLeft[indexRight])
+				while (channelsToLeft[indexRight].empty())
 				{
 					cond_variables_to_left[indexRight].wait(lock);
 				}
-				if (!channelsToLeft[indexRight].empty())
-				{
 					storage.rightG = channelsToLeft[indexRight].front();
 					channelsToLeft[indexRight].pop();
-				}
-				notificationsToLeft[indexRight] = false;
 			}
 			{
 				size_t indexLeft = (index - 1 + threads) % threads;
 				std::unique_lock<std::mutex> lock2(mutexesToRight[indexLeft]);
-				while (!notificationsToRight[indexLeft])
+				while (channelsToRight[indexLeft].empty())
 				{
 					cond_variables_to_right[indexLeft].wait(lock2);
 				}
-				if (!channelsToRight[indexLeft].empty())
-				{
 					storage.leftG = channelsToRight[indexLeft].front();
 					channelsToRight[indexLeft].pop();
-				}
-				notificationsToRight[indexLeft] = false;
 			}
 
 			//swap pointers
@@ -136,14 +126,12 @@ public:
 	{
 		std::vector<std::thread> workers;
 		size_t W = size() / thrs;
-		size_t G = W/16;
+		size_t G = W/8;
 		if (G < 1) { G += 1; }
 		mutexesToLeft = std::vector<std::mutex>(thrs);
 		mutexesToRight = std::vector<std::mutex>(thrs);
 		cond_variables_to_left = std::vector<std::condition_variable>(thrs);
 		cond_variables_to_right = std::vector<std::condition_variable>(thrs);
-		notificationsToLeft = std::vector<bool>(thrs);
-		notificationsToRight = std::vector<bool>(thrs);
 		channelsToLeft = std::vector<std::queue<std::vector<ET>>>(thrs);
 		channelsToRight = std::vector<std::queue<std::vector<ET>>>(thrs);
 
@@ -200,8 +188,6 @@ private:
 	std::vector<std::mutex> mutexesToLeft;
 	std::vector<std::condition_variable> cond_variables_to_right;
 	std::vector<std::condition_variable> cond_variables_to_left;
-	std::vector<bool> notificationsToRight;
-	std::vector<bool> notificationsToLeft;
 	std::vector<std::queue<std::vector<ET>>> channelsToRight;
 	std::vector<std::queue<std::vector<ET>>> channelsToLeft;
 	std::mutex mutexToWriteData;

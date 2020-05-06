@@ -91,7 +91,7 @@ public:
 				{
 					fromRight.condition.wait(lock);
 				}
-				storage.rightG = fromRight.channel.front();
+				storage.rightG = std::move(fromRight.channel.front());
 				fromRight.channel.pop();
 			}
 			{
@@ -100,7 +100,7 @@ public:
 				{
 					fromLeft.condition.wait(lock);
 				}
-				storage.leftG = fromLeft.channel.front();
+				storage.leftG = std::move(fromLeft.channel.front());
 				fromLeft.channel.pop();
 			}
 			//@todo:swap pointers

@@ -3,7 +3,6 @@
 #include <tuple>
 #include <vector>
 #include <string>
-#include <unordered_map>
 
 template<class GraphSchema>
 class graph_db;
@@ -59,6 +58,7 @@ public:
 	{
 		addWithSequence(columns ..., std::make_index_sequence<sizeof ... (Ts)>());
 	}
+	//ads one row to every property with default values
 	template<size_t ... sq>
 	void addEmpty(std::index_sequence<sq ...>)
 	{
@@ -67,16 +67,19 @@ public:
 private:
 	std::tuple<std::vector<Ts> ...> table;
 
+	//is called by setRow, sets one row of properties - single record
 	template<size_t ... sq>
 	void setRowWithSequence(std::index_sequence<sq ...>, size_t index, Ts ... values)
 	{
 		(set<sq>(index, values), ...);
 	}
+	//is called by getRow, gets one row of properties - single record
 	template<size_t ... sq>
 	std::tuple<Ts ...> getRowWithSequence(std::index_sequence<sq ...>, size_t index)
 	{
 		return std::tuple<Ts ...>{ get<sq>(index)... };
 	}
+	//is called by add, adds one row of properties - single record
 	template<size_t ... sq>
 	void addWithSequence(Ts... columns, std::index_sequence<sq ...>)
 	{
@@ -108,7 +111,7 @@ public:
 	/**
    * @brief Returns the immutable user id of the element.
    */
-	auto id() const 
+	decltype(auto) id() const 
 	{
 		return edges.indexToID[index];
 	}
@@ -259,7 +262,7 @@ public:
 	/**
 	 * @brief Returns the immutable user id of the element.
 	 */
-	auto id() const 
+	decltype(auto) id() const 
 	{
 		return vertices.indexToID[index];
 	}
@@ -457,10 +460,12 @@ public:
 	using edge_it_t = edge_it<GraphSchema>;
 	using neighbor_it_t = neighbor_it<GraphSchema>;
 
+	//gets index of record and returns created vertex proxy via which this record can be obtained or motified
 	vertex_t getVertex(size_t index) {
 		return vertex_t(index, edges, vertices);
 	}
 
+	//gets index of record and returns created vertex proxy via which this record can be obtained or motified
 	edge_t getEdge(size_t index) {
 		return edge_t(index, edges);
 	}

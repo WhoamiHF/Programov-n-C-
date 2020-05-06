@@ -26,9 +26,9 @@ class forwarder
 public:
 	void operator()(void* context, typename std::vector<ET>::iterator beg, typename std::vector<ET>::iterator end, size_t G, SF& sf, size_t g, size_t index,
 		size_t threads, typename std::vector<ET>::iterator res
-		,package<ET>& toLeft, package<ET>& toRight, package<ET>& fromLeft, package<ET>& fromRight)
+		,package<ET>& toLeft, package<ET>& toRight, package<ET>& fromLeft, package<ET>& fromRight,std::mutex& mutexToWriteData)
 	{
-		static_cast<circle<ET>*>(context)->oneThreadJob(beg, end, G, sf, g, index, threads,res,toLeft,toRight,fromLeft,fromRight);
+		static_cast<circle<ET>*>(context)->oneThreadJob(beg, end, G, sf, g, index, threads,res,toLeft,toRight,fromLeft,fromRight,mutexToWriteData);
 	}
 };
 
@@ -57,7 +57,7 @@ public:
 	//this is the function which does each thread. First it sends messages to its neighbors, then recieves from them and then does G (or less) generations. 
 	template<typename SF>
 	void oneThreadJob(typename std::vector<ET>::iterator beg, typename std::vector<ET>::iterator end, size_t G, SF& sf, size_t g, size_t index, size_t threads,
-		typename std::vector<ET>::iterator res,package<ET>& toLeft, package<ET>& toRight, package<ET>& fromLeft, package<ET>& fromRight)
+		typename std::vector<ET>::iterator res,package<ET>& toLeft, package<ET>& toRight, package<ET>& fromLeft, package<ET>& fromRight,std::mutex& mutexToWriteData)
 	{
 		threeVectors storage;
 		storage.thisPart = std::vector(beg, end);
@@ -133,6 +133,7 @@ public:
 		size_t W = size() / thrs;
 		size_t G = W / 32;
 		if (G < 1) { G += 1; }
+		std::mutex mutexToWriteData;
 		std::vector<package<ET>> toLeft(thrs);
 		std::vector<package<ET>> toRight(thrs);
 		std::vector<ET> result(size());
@@ -143,7 +144,7 @@ public:
 			if (size() % thrs > th)
 			{
 				workers.push_back(std::thread(forwarder<ET, SF>(), this, startingPosition, startingPosition + W + 1, G, std::ref(sf), g, th, thrs, startOfResult
-					,std::ref(toLeft[th]), std::ref(toRight[th]), std::ref(toRight[(th - 1 + thrs) % thrs]), std::ref(toLeft[(th + 1) % thrs])));
+					,std::ref(toLeft[th]), std::ref(toRight[th]), std::ref(toRight[(th - 1 + thrs) % thrs]), std::ref(toLeft[(th + 1) % thrs]),std::ref(mutexToWriteData)));
 
 
 				startingPosition += (W + 1);
@@ -152,7 +153,7 @@ public:
 			else
 			{
 				workers.push_back(std::thread(forwarder<ET, SF>(), this, startingPosition, startingPosition + W, G, std::ref(sf), g, th, thrs, startOfResult
-					, std::ref(toLeft[th]), std::ref(toRight[th]), std::ref(toRight[(th - 1 + thrs) % thrs]), std::ref(toLeft[(th + 1) % thrs])));
+					, std::ref(toLeft[th]), std::ref(toRight[th]), std::ref(toRight[(th - 1 + thrs) % thrs]), std::ref(toLeft[(th + 1) % thrs]),std::ref(mutexToWriteData)));
 				startingPosition += W;
 				startOfResult += W;
 			}
@@ -195,7 +196,6 @@ public:
 
 private:
 	std::vector<ET> field;
-	std::mutex mutexToWriteData;
 };
 
 

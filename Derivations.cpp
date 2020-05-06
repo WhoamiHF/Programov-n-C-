@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <memory>
 
 using namespace std;
 class AbstractVal;
@@ -11,13 +12,18 @@ class AbstractVal {
 public:
 	virtual ~AbstractVal() {}
 	virtual void print() = 0;
-	//virtual void simplify() = 0;
+	virtual valptr simplify() = 0;
 	virtual valptr differentiate() = 0;
 	virtual valptr clone() = 0;
+	virtual bool isNumber() = 0;
+	virtual double returnX() = 0;
+	double x_= -100;
 };
 
 class AbstractOp :public AbstractVal {
 public:
+	bool isNumber() { return false; }
+	double returnX() { return x_; }
 	AbstractOp(valptr&& left, valptr&& right) : left_(move(left)), right_(move(right)) {}
 protected:
 	valptr left_;
@@ -26,25 +32,28 @@ protected:
 
 class DoubleVal : public AbstractVal {
 public:
+	bool isNumber() { return true; }
 	valptr differentiate() override {
 		return make_unique<DoubleVal>(0.0);
 	}
 	DoubleVal(double x) : x_(x) {};
 	void print() override { std::cout << x_; }
-	//void simplify() override {}
+	valptr simplify() override { return make_unique<DoubleVal>(x_); }
 	valptr clone() override {
 		return std::make_unique<DoubleVal>(x_);
 	}
-private:
+	double returnX() { return x_; }
 	double x_;
 };
 class VarVal : public AbstractVal {
 public:
+	bool isNumber() { return false; }
 	valptr differentiate() override {
 		return make_unique<DoubleVal>(1.0);
 	}
-	//void simplify() override {}
+	valptr simplify() override { return make_unique<VarVal>(); }
 	void print() override { std::cout << "x"; }
+	double returnX() { return x_; }
 	valptr clone() override {
 		return std::make_unique<VarVal>();
 	}
@@ -59,15 +68,24 @@ public:
 		valptr rightDerivation = right_->differentiate();
 		return make_unique<Plus>(move(leftDerivation), move(rightDerivation));
 	}
+	valptr simplify() override {
+		valptr leftSimplified = left_->simplify();
+		valptr rightSimplified = right_->simplify();
+		if (leftSimplified->isNumber() && rightSimplified->isNumber()) {
+			double sum = leftSimplified->returnX() + rightSimplified->returnX();
+			return make_unique<DoubleVal>(sum);
+		}
+		if (leftSimplified->isNumber() && leftSimplified->returnX() == 0) {
+			return rightSimplified;
+		} else if (rightSimplified->isNumber() && rightSimplified->returnX() == 0) {
+			return leftSimplified;
+		}
+		else { return make_unique<Plus>(move(leftSimplified), move(rightSimplified)); }
+	}
 
 	valptr clone() override {
 		return make_unique<Plus>(move(left_->clone()), move(right_->clone()));
 	}
-	/*void simplify() override {
-		left_->simplify();
-		right_->simplify();
-		
-	}*/
 	void print() override {
 		cout << "(";
 		left_->print();
@@ -87,7 +105,22 @@ public:
 	valptr clone() override {
 		return make_unique<Minus>(move(left_->clone()), move(right_->clone()));
 	}
-
+	valptr simplify() override {
+		valptr leftSimplified = left_->simplify();
+		valptr rightSimplified = right_->simplify();
+		if (leftSimplified->isNumber() && rightSimplified->isNumber()) {
+			double difference = leftSimplified->returnX() - rightSimplified->returnX();
+			return make_unique<DoubleVal>(difference);
+		}
+		else if (rightSimplified->isNumber() && rightSimplified->returnX() == 0)
+		{
+			return leftSimplified;
+		}
+		else
+		{
+			return make_unique<Minus>(move(leftSimplified), move(rightSimplified));
+		}
+	}
 	void print() override {
 		cout << "(";
 		left_->print();
@@ -112,6 +145,25 @@ public:
 	valptr clone() override {
 		return make_unique<Multiplication>(move(left_->clone()), move(right_->clone()));
 	}
+	valptr simplify() {
+		valptr leftSimplified = left_->simplify();
+		valptr rightSimplified = right_->simplify();
+		if (leftSimplified->isNumber() && rightSimplified->isNumber()) 
+		{
+			double product = leftSimplified->returnX() * rightSimplified->returnX();
+			return make_unique<DoubleVal>(product);
+		}
+		if ((leftSimplified->isNumber() && leftSimplified->returnX() == 0) || (rightSimplified->isNumber() && rightSimplified->returnX() == 0)) {
+			return make_unique<DoubleVal>(0.0);
+		}
+		else if (leftSimplified->isNumber() && leftSimplified->returnX() == 1) {
+			return rightSimplified;
+		}
+		else if (rightSimplified->isNumber() && rightSimplified->returnX() == 1) {
+			return leftSimplified;
+		}
+		else { return make_unique<Multiplication>(move(leftSimplified), move(rightSimplified)); }
+	}
 	void print() override {
 		cout << "(";
 		left_->print();
@@ -134,11 +186,28 @@ public:
 		valptr leftProduct = make_unique<Multiplication>(move(leftDerivation), move(rightCopy1));
 		valptr rightProduct = make_unique<Multiplication>(move(leftCopy), move(rightDerivation));
 		valptr bottomProduct = make_unique<Multiplication>(move(rightCopy2), move(rightCopy3));
-		valptr numerator = make_unique<Plus>(move(leftProduct), move(rightProduct));
+		valptr numerator = make_unique<Minus>(move(leftProduct), move(rightProduct));
 		return make_unique<Division>(move(numerator), move(bottomProduct));
 	}
 	valptr clone() override {
 		return make_unique<Division>(move(left_->clone()), move(right_->clone()));
+	}
+	valptr simplify() override {
+		valptr leftSimplified = left_->simplify();
+		valptr rightSimplified = right_->simplify();
+		if (leftSimplified->isNumber() && leftSimplified->returnX() == 0)
+		{
+			return make_unique<DoubleVal>(0.0);
+		}
+		else if (leftSimplified->isNumber() && rightSimplified->isNumber()) 
+		{
+			double division = leftSimplified->returnX() / rightSimplified->returnX();
+			return make_unique<DoubleVal>(division);
+		}
+		else
+		{
+			return make_unique<Division>(move(leftSimplified), move(rightSimplified));
+		}
 	}
 	void print() override {
 		cout << "(";
@@ -172,9 +241,9 @@ void Reader::read() {
 		}
 		else
 		{
-			auto tree=output.back()->differentiate();
-			tree->print();
-			//output.print();
+			auto derivationTree=output.back()->differentiate();
+			auto simplifiedTree = derivationTree->simplify();
+			simplifiedTree->print();
 			cout << endl;
 		}
 
@@ -280,6 +349,7 @@ bool Reader::ProcessLine(string line) {
 			}
 			else if (!isspace(c))
 			{
+				if (expectedOperator == false) { return false; }
 				expectedOperator = false;
 				int p = Priority(c);
 				if (p < 0) { return false; }

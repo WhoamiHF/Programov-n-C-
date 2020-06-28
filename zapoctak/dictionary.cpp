@@ -24,7 +24,12 @@ void dictionary::writeSettings() {
 	myfile << limitUp << " " << limitDown << " " << sizeOfTest << " " << timeLimit << endl;
 }
 
-
+void dictionary::synonyms(userInterface& ui) {
+	int i = rand() % multiTranslations.size();
+	int j =rand() % (multiTranslations[i]->translations.size());
+	auto it = next(multiTranslations[i]->translations.begin(), j);
+	cout << *it;
+}
 //called by userInterface::showMenu(), manages adding and deleting words+translations
 void dictionary::modify(userInterface& ui)
 {
@@ -62,7 +67,9 @@ void dictionary::modify(userInterface& ui)
 				translation = translation + " " + s;
 			}
 		}
-		translations.emplace(translation);
+		if (translation != "") {
+			translations.emplace(translation);
+		}
 		if (command == "add" && secondCommand == "main")
 		{
 			add(word, translations, mainData);
@@ -77,6 +84,9 @@ void dictionary::modify(userInterface& ui)
 		}
 		else if (command == "delete" && secondCommand == "important")
 		{
+			for (auto&& item : translations) {
+				cout << ":"<< item<<":";
+			}
 			deleteTranslations(word, translations, importantData);
 		}
 	}
@@ -101,10 +111,14 @@ void dictionary::add(string word, set<string>& translations, list<single>& where
 		if (&whereTo == &mainData)
 		{
 			intToIteratorMain.emplace(mainData.size() - 1, newItem);
+
 		}
 		else
 		{
 			intToIteratorImportant.emplace(importantData.size() - 1, newItem);
+		}
+		if (translations.size() > 1) {
+			multiTranslations.push_back(newItem);
 		}
 	}
 }
@@ -115,6 +129,9 @@ void dictionary::add(string word, set<string>& translations, list<single>& where
 //uses integer as key. Afterwards returns to the main menu.
 void dictionary::createTest(userInterface& ui)
 {
+	for (auto&& item : multiTranslations) {
+		cout << item->word;
+	}
 	if (gapImportant) 
 	{
 		rebuildIndex(intToIteratorImportant);

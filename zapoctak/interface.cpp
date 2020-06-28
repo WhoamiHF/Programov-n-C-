@@ -75,7 +75,8 @@ void userInterface::printListOfAllFiles()
 //shows menu and gets input from the user then calls correct function
 void userInterface::showMenu(dictionary& dict)
 {
-	cout << "type 'start' to start test" << endl;
+	cout << "type 'start' to start translating test" << endl;
+	cout << "type 'synonyms' to start practising synonyms" << endl;
 	cout << "type 'change' to modify database" << endl;
 	cout << "type 'showB' to list all regular words" << endl;
 	cout << "type 'showI' to list all important words" << endl;
@@ -87,6 +88,9 @@ void userInterface::showMenu(dictionary& dict)
 	if (command == "start")
 	{
 		dict.createTest(*this);
+	}
+	else if (command == "synonyms") {
+		dict.synonyms(*this);
 	}
 	else if (command == "change")   
 	{

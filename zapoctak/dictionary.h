@@ -6,6 +6,7 @@
 #include <deque>
 #include <fstream>
 #include <iostream>
+#include <vector>
 
 class dictionary;
 class userInterface;
@@ -44,6 +45,7 @@ private:
 	//testing
 	void createTest(userInterface& ui);
 	void testWord(int index, std::list<single>& data);
+	void synonyms(userInterface& ui);
 
 	//settings
 	unsigned sizeOfTest;
@@ -61,10 +63,13 @@ private:
 	void deleteTranslations(std::string word, std::set<std::string> translations, std::list<single>& collection);
 	void add(std::string word, std::set<std::string>& translations, std::list<single>& whereTo);
 
+
 	//indexes
 	std::map<int, std::list<single>::iterator> intToIteratorMain;
 	std::map<int, std::list<single>::iterator> intToIteratorImportant;
 	std::map<std::string, std::list<single>::iterator> wordToIterator;
+
+	std::vector< std::list<single>::iterator> multiTranslations;
 
 	//determines if rebuilding of a index is needed.
 	bool gapMain;

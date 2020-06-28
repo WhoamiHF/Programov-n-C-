@@ -1,5 +1,7 @@
 #pragma once
 class dictionary;
+
+
 class userInterface {
 public:
 	void startPosibilities(dictionary& dict);

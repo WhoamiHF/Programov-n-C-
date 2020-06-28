@@ -9,35 +9,23 @@
 using namespace std;
 
 
-//called from showMenu(), writes changed dictionary into files and ends program
+//called from userInterface::showMenu(), writes changed dictionary into files and ends program
+// writeIntoFile is in dictionary.h because it's a teplate which is templated by type of container passed as second argument
 void dictionary::endThisProgram()
 {
 	writeIntoFile(file + ",B.txt", mainData);
 	writeIntoFile(file + ",I.txt", importantData);
-	writeArchive();
+	writeIntoFile(file + ",A.txt", archive);
+	writeSettings();
 	exit(1);
 }
-
-void dictionary::writeArchive() {
-	ofstream myfile(file + ",A.txt");
-
-	for (auto&& item : archive)
-	{
-		myfile << item.word << " - ";
-		for (auto it = item.translations.begin(); it != item.translations.end(); ++it)
-		{
-			if (it != item.translations.begin())
-			{
-				myfile << " , ";
-			}
-			myfile << *it;
-		}
-		myfile << " ; ";
-	}
+void dictionary::writeSettings() {
+	std::ofstream myfile("settings.txt");
+	myfile << limitUp << " " << limitDown << " " << sizeOfTest << " " << timeLimit << endl;
 }
 
 
-//called by ui.showMenu(), manages adding and deleting words+translations
+//called by userInterface::showMenu(), manages adding and deleting words+translations
 void dictionary::modify(userInterface& ui)
 {
 	cout << "[add/delete] [main/important] [word] - [translation1 , translation2 ...]" << endl;
@@ -93,7 +81,7 @@ void dictionary::modify(userInterface& ui)
 		}
 	}
 }
-//manages adding words and it's translations
+//manages adding words and it's translations, adds to corresponding indices (/indexes)
 void dictionary::add(string word, set<string>& translations, list<single>& whereTo)
 {
 	if (wordToIterator.find(word) != wordToIterator.end())
@@ -124,6 +112,7 @@ void dictionary::add(string word, set<string>& translations, list<single>& where
 
 
 //creates test, according to chances there should be more important words than from from (60:40), then tests each of them
+//uses integer as key. Afterwards returns to the main menu.
 void dictionary::createTest(userInterface& ui)
 {
 	if (gapImportant) 
@@ -169,10 +158,6 @@ void dictionary::createTest(userInterface& ui)
 		testWord(item, importantData);
 	}
 	cout << "Test finished!" << endl;
-	/*cout << "mainData" << endl;
-	ui.printEvery(mainData);
-	cout << "importantData" << endl;
-	ui.printEvery(importantData);*/
 	ui.showMenu(*this);
 }
 
@@ -185,7 +170,8 @@ void dictionary::rebuildIndex(map<int, list<single>::iterator>& index) {
 }
 
 
-//deletes listed translations, will be called from modify() and from test
+//deletes listed translations,is called from modify and also from testWord.
+//if the list of translations is empty then every translation is deleted and the word is removed.
 void dictionary::deleteTranslations(string word, set<string> translations, list<single>& collection)
 {
 	auto elem = wordToIterator.find(word);
@@ -232,6 +218,9 @@ void dictionary::deleteTranslations(string word, set<string> translations, list<
 		cout << "this word wasn't in the database" << endl;
 	}
 }
+//called from createTest. Checks if inputed value corresponds to at least one of correct translations.
+//checks if the word is learned and if so then moves the word to archive.
+//also checks if the word is problematic and if so then moves the word to important.
 void dictionary::testWord(int index, list<single>& data)
 {
 	list<single>::iterator elem;
@@ -308,8 +297,19 @@ void dictionary::testWord(int index, list<single>& data)
 		}
 	}
 }
+
+//initialization - reads settings and three databases - main,important and archive.
 void dictionary::read()
 {
+	ifstream settingsFile("settings.txt");
+	if (settingsFile.is_open()) {
+		settingsFile >> limitUp;
+		settingsFile >> limitDown;
+		settingsFile >> sizeOfTest;
+		settingsFile >> timeLimit;
+		settingsFile.close();
+	}
+
 	string f;
 	for (size_t i = 0; i <= 2; i++)
 	{
@@ -385,5 +385,6 @@ void dictionary::read()
 				}
 			}
 		}
+		myfile.close();
 	}
 }

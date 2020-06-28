@@ -5,6 +5,7 @@
 #include <filesystem>
 using namespace std;
 
+//uses printListOfAllFiles to get possible databases and lets user to choose.
 void userInterface::startPosibilities(dictionary& dict)
 {
 	printListOfAllFiles();
@@ -17,6 +18,7 @@ void userInterface::startPosibilities(dictionary& dict)
 	dict.file = first + "-" + second;
 }
 
+//prints every word and its translations from archive
 void userInterface::showArchive(dictionary& dict) {
 	//system("cls");
 	for (auto&& item : dict.archive) {
@@ -30,7 +32,7 @@ void userInterface::showArchive(dictionary& dict) {
 	showMenu(dict);
 }
 
-//outputs every single from collection
+//outputs every single from collection - mainData or importantData
 void userInterface::printEvery(list<single>& fromWhere,dictionary& dict)
 {
 	for (auto&& item : fromWhere)
@@ -46,6 +48,8 @@ void userInterface::printEvery(list<single>& fromWhere,dictionary& dict)
 	showMenu(dict);
 }
 
+//called from startPosiblities - checks which files are in same folder. Gets just the language parts of the files 
+//and removes duplicates. It prints every file which is ".txt" and contains ","
 void userInterface::printListOfAllFiles()
 {
 	namespace fs = std::filesystem;
@@ -56,7 +60,7 @@ void userInterface::printListOfAllFiles()
 	for (const auto& entry : fs::directory_iterator(path))
 	{
 		string fn = entry.path().filename().string();
-		if (fn.find(".txt") == fn.size() - 4)
+		if ((fn.find(".txt") == fn.size() - 4) && (fn.find(",") != string::npos))
 		{
 			fn = fn.substr(0, fn.find(","));
 			fileNames.emplace(fn);
@@ -84,7 +88,7 @@ void userInterface::showMenu(dictionary& dict)
 	{
 		dict.createTest(*this);
 	}
-	else if (command == "change")       //todo settings
+	else if (command == "change")   
 	{
 		dict.modify(*this);
 	}
@@ -111,6 +115,7 @@ void userInterface::showMenu(dictionary& dict)
 	}
 }
 
+//enables to change important settings. During ending of the program it is written into file so its persistent.
 void userInterface::settings(dictionary& dict) {
 	int choice(0);
 	while (choice != 5) {
@@ -133,15 +138,19 @@ void userInterface::settings(dictionary& dict) {
 			cout << "insert new limit for problematic" << endl;
 			cin >> newValue;
 			dict.limitDown = newValue;
+			break;
 		case 3:
 			cout << "insert new size of a test" << endl;
 			cin >> newValue;
 			dict.sizeOfTest = newValue;
+			break;
 		case 4:
 			cout << "insert new time limit" << endl;
 			cin >> newValue;
 			dict.timeLimit = newValue;
+			break;
 		default:
+			cout << "please choose correct number" << endl;
 			break;
 		}
 	}

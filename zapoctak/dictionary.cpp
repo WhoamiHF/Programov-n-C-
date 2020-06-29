@@ -25,10 +25,34 @@ void dictionary::writeSettings() {
 }
 
 void dictionary::synonyms(userInterface& ui) {
-	int i = rand() % multiTranslations.size();
-	int j =rand() % (multiTranslations[i]->translations.size());
-	auto it = next(multiTranslations[i]->translations.begin(), j);
-	cout << *it;
+	while (multiTranslations.size() != 0) {
+		cout << "type 'br3ak' for returning to the main menu" << endl;
+		int i = rand() % multiTranslations.size();
+		int j = rand() % (multiTranslations[i]->translations.size());
+		auto it = next(multiTranslations[i]->translations.begin(), j);
+		cout << "fill synonym for: " << *it <<endl;
+		string answer;
+		cin >> answer;
+		if (answer == "br3ak") { break; }
+		bool correct = false;
+		cout << "Group of synonyms: ";
+		for (auto&& item : multiTranslations[i]->translations) {
+			cout << item << " ";
+			if (item == answer)
+			{
+				correct = true;
+			}
+		}
+		cout << endl;
+		if (correct) {
+			cout << "correct answer!" << endl;
+			multiTranslations.erase(multiTranslations.begin() + i);
+		}
+		else {
+			cout << "wrong answer!" << endl;
+		}
+	}
+	ui.showMenu(*this);
 }
 //called by userInterface::showMenu(), manages adding and deleting words+translations
 void dictionary::modify(userInterface& ui)

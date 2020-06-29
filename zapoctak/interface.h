@@ -10,4 +10,5 @@ public:
 	void settings(dictionary& dict);
 	void showArchive(dictionary& dict);
 	void printEvery(std::list<single>& fromWhere,dictionary& dict);
+	void import(dictionary& dict);
 };

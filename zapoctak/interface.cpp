@@ -72,6 +72,25 @@ void userInterface::printListOfAllFiles()
 	}
 }
 
+void userInterface::import(dictionary& dict) {
+	cout << "The size of archive is " << dict.archive.size() << endl;
+	cout << "insert how many words do you wish to move from archive back to main database" << endl;
+	size_t answer;
+	cin >> answer;
+	while (answer > dict.archive.size()) {
+		cout << "invalid number, try again" << endl;
+		cin >> answer;
+	}
+	cout << "elements moved: ";
+	for (size_t i = 0; i < answer; i++) {
+		auto elem = dict.archive.front();
+		cout << elem.word<<" ";
+		dict.add(elem.word, elem.translations, dict.mainData);
+		dict.archive.pop_front();
+	}
+	cout << endl <<endl;
+	showMenu(dict);
+}
 //shows menu and gets input from the user then calls correct function
 void userInterface::showMenu(dictionary& dict)
 {
@@ -81,6 +100,7 @@ void userInterface::showMenu(dictionary& dict)
 	cout << "type 'showB' to list all regular words" << endl;
 	cout << "type 'showI' to list all important words" << endl;
 	cout << "type 'showA' to list all archive words" << endl;
+	cout << "type 'import' to import n words from archive" << endl;
 	cout << "type 'settings' to change settings" << endl;
 	cout << "type 'end' to end program" << endl;
 	string command;
@@ -91,6 +111,9 @@ void userInterface::showMenu(dictionary& dict)
 	}
 	else if (command == "synonyms") {
 		dict.synonyms(*this);
+	}
+	else if (command == "import") {
+		import(dict);
 	}
 	else if (command == "change")   
 	{

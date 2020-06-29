@@ -3,14 +3,12 @@
 #include <string>
 #include <fstream>
 #include <iostream>
-#include <sstream>
 #include <unordered_set>
-#include <ctime>
 using namespace std;
 
 
 //called from userInterface::showMenu(), writes changed dictionary into files and ends program
-// writeIntoFile is in dictionary.h because it's a teplate which is templated by type of container passed as second argument
+// writeIntoFile is in dictionary.h because it's a template which is templated by type of container passed as second argument
 void dictionary::endThisProgram()
 {
 	writeIntoFile(file + ",B.txt", mainData);
@@ -24,98 +22,12 @@ void dictionary::writeSettings() {
 	myfile << limitUp << " " << limitDown << " " << sizeOfTest << " " << timeLimit << endl;
 }
 
-void dictionary::synonyms(userInterface& ui) {
-	while (multiTranslations.size() != 0) {
-		cout << "type 'br3ak' for returning to the main menu" << endl;
-		int i = rand() % multiTranslations.size();
-		int j = rand() % (multiTranslations[i]->translations.size());
-		auto it = next(multiTranslations[i]->translations.begin(), j);
-		cout << "fill synonym for: " << *it <<endl;
-		string answer;
-		cin >> answer;
-		if (answer == "br3ak") { break; }
-		bool correct = false;
-		cout << "Group of synonyms: ";
-		for (auto&& item : multiTranslations[i]->translations) {
-			cout << item << " ";
-			if (item == answer)
-			{
-				correct = true;
-			}
-		}
-		cout << endl;
-		if (correct) {
-			cout << "correct answer!" << endl;
-			multiTranslations.erase(multiTranslations.begin() + i);
-		}
-		else {
-			cout << "wrong answer!" << endl;
-		}
-	}
-	ui.showMenu(*this);
-}
-//called by userInterface::showMenu(), manages adding and deleting words+translations
-void dictionary::modify(userInterface& ui)
-{
-	cout << "[add/delete] [main/important] [word] - [translation1 , translation2 ...]" << endl;
-	string row;
-	while (getline(cin, row))
-	{
-		stringstream sRow(row);
-		string command;
-		sRow >> command;
-		if (command == "menu") {
-			ui.showMenu(*this);
-			break;
-		}
-		string secondCommand;
-		sRow >> secondCommand;
-		set<string> translations;
-		string word = "";
-		string s = "";
-		sRow >> word;
-		while (sRow >> s && s != "-")
-		{
-			word += s;
-		}
-		string translation = "";
-		sRow >> translation;
-		while (sRow >> s)
-		{
-			if (s == ",")
-			{
-				translations.emplace(translation);
-				sRow >> translation;
-			}
-			else {
-				translation = translation + " " + s;
-			}
-		}
-		if (translation != "") {
-			translations.emplace(translation);
-		}
-		if (command == "add" && secondCommand == "main")
-		{
-			add(word, translations, mainData);
-		}
-		else if (command == "add" && secondCommand == "important")
-		{
-			add(word, translations, importantData);
-		}
-		else if (command == "delete" && secondCommand == "main")
-		{
-			deleteTranslations(word, translations, mainData);
-		}
-		else if (command == "delete" && secondCommand == "important")
-		{
-			for (auto&& item : translations) {
-				cout << ":"<< item<<":";
-			}
-			deleteTranslations(word, translations, importantData);
-		}
-	}
-}
-//manages adding words and it's translations, adds to corresponding indices (/indexes)
+
+
+/*manages adding words and it's translations
+ is called by: userInterface::import,userInterface::testWord,userInterface::modify and dictionary::read
+ adds to wordToIterator index and to intToIteratorMain or intToIteratorImportant depending on importance of the word
+ */
 void dictionary::add(string word, set<string>& translations, list<single>& whereTo)
 {
 	if (wordToIterator.find(word) != wordToIterator.end())
@@ -141,21 +53,23 @@ void dictionary::add(string word, set<string>& translations, list<single>& where
 		{
 			intToIteratorImportant.emplace(importantData.size() - 1, newItem);
 		}
-		if (translations.size() > 1) {
+		if (translations.size() > 1 && wordToMultiple.find(word) == wordToMultiple.end()) {
 			multiTranslations.push_back(newItem);
+			wordToMultiple.emplace(word, multiTranslations.size() - 1);			
 		}
 	}
 }
 
 
 
-//creates test, according to chances there should be more important words than from from (60:40), then tests each of them
-//uses integer as key. Afterwards returns to the main menu.
+/*creates test, according to chances there should be more important words than from important (60:40) assuming both
+databases are large enough. Then tests each of them (see userInterface::testWord)
+uses integer as key and that's the reason for intToIterator indices. Afterwards returns to the main menu.*/
 void dictionary::createTest(userInterface& ui)
 {
-	for (auto&& item : multiTranslations) {
+	/*for (auto&& item : multiTranslations) {
 		cout << item->word;
-	}
+	}*/
 	if (gapImportant) 
 	{
 		rebuildIndex(intToIteratorImportant);
@@ -192,16 +106,17 @@ void dictionary::createTest(userInterface& ui)
 	}
 	for (auto item : setOfChoosenMain)
 	{
-		testWord(item, mainData);
+		ui.testWord(item, mainData,*this);
 	}
 	for (auto item : setOfChoosenImportant)
 	{
-		testWord(item, importantData);
+		ui.testWord(item, importantData,*this);
 	}
 	cout << "Test finished!" << endl;
 	ui.showMenu(*this);
 }
 
+//deals with gaps in indices. Needed for making test - picking random number, called by createTest.
 void dictionary::rebuildIndex(map<int, list<single>::iterator>& index) {
 	map<int, list<single>::iterator> tmp;
 	for (auto&& item : index) {
@@ -211,14 +126,16 @@ void dictionary::rebuildIndex(map<int, list<single>::iterator>& index) {
 }
 
 
-//deletes listed translations,is called from modify and also from testWord.
+//deletes listed translations,is called from userInterface::modify and also from userInterface::testWord.
 //if the list of translations is empty then every translation is deleted and the word is removed.
 void dictionary::deleteTranslations(string word, set<string> translations, list<single>& collection)
 {
+
 	auto elem = wordToIterator.find(word);
 	if (elem != wordToIterator.end())
 	{
 		auto tr = elem->second->translations;
+		bool wasInMultiple = tr.size() >1;
 		list<string>::iterator delIt;
 		for (auto&& translationToDelete : translations)
 		{
@@ -227,7 +144,11 @@ void dictionary::deleteTranslations(string word, set<string> translations, list<
 				tr.erase(delIt);
 			}
 		}
-
+		if ((tr.empty() || translations.size() <= 1) && wasInMultiple) {
+			auto multipleIt = wordToMultiple.find(word);
+			multiTranslations.erase(multiTranslations.begin()+multipleIt->second);
+			wordToMultiple.erase(multipleIt);
+		}
 		if (tr.empty() || translations.empty())
 		{
 			if (&collection == &mainData)
@@ -259,85 +180,7 @@ void dictionary::deleteTranslations(string word, set<string> translations, list<
 		cout << "this word wasn't in the database" << endl;
 	}
 }
-//called from createTest. Checks if inputed value corresponds to at least one of correct translations.
-//checks if the word is learned and if so then moves the word to archive.
-//also checks if the word is problematic and if so then moves the word to important.
-void dictionary::testWord(int index, list<single>& data)
-{
-	list<single>::iterator elem;
-	if (&data == &mainData)
-	{
-		elem = intToIteratorMain.find(index)->second;
-	}
-	else
-	{
-		elem = intToIteratorImportant.find(index)->second;
-	}
-	cout << "translate: " << elem->word << endl;
-	string answer;
-	clock_t begin = clock();
-	cin >> answer;
-	clock_t end = clock();
-	bool correct = false;
-	float elapsed_secs = float(end - begin) / CLOCKS_PER_SEC;
-	cout << "Time elapsed: " << elapsed_secs << endl;
-	cout << "Possible answer(s): ";
-	for (auto item : elem->translations)
-	{
-		cout << item << " ";
-		if (item == answer) {
-			correct = true;
-		}
-	}
-	cout << endl;
-	if (correct && elapsed_secs <= timeLimit)
-	{
-		cout << "Correct answer!" << endl;
-		elem->score++;
-		if (elem->score >= limitUp)
-		{
-			if (&data == &importantData) {
-				string word = elem->word;
-				set<string> trs;
-				for (auto&& item : elem->translations)
-				{
-					trs.emplace(item);
-				}
-				deleteTranslations(elem->word, set<string>(), data);
-				add(word, trs, mainData);
-			}
-			else
-			{
-				archive.push_back(archiveSingle(elem->word, elem->translations));
-				deleteTranslations(elem->word, set<string>(), data);
-			}
-		}
-	}
-	else
-	{
-		if (!correct)
-		{
-			cout << "Wrong answer!" << endl;
-		}
-		else
-		{
-			cout << "Sorry too slow!" << endl;
-		}
-		elem->score--;
-		if (elem->score <= -limitDown && (&data==&mainData))
-		{
-			string word = elem->word;
-			set<string> trs;
-			for (auto&& item : elem->translations)
-			{
-				trs.emplace(item);
-			}
-			deleteTranslations(elem->word, set<string>(), mainData);
-			add(word, trs, importantData);
-			
-		}
-	}
-}
+
 
 //initialization - reads settings and three databases - main,important and archive.
 void dictionary::read()

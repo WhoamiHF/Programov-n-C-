@@ -1,17 +1,16 @@
 #pragma once
 #include <string>
-#include <list>
-#include <set>
-#include <map>
-#include <deque>
-#include <fstream>
-#include <iostream>
-#include <vector>
+#include <list> 
+#include <set> 
+#include <map> //used for indices
+#include <deque> //used for archive
+#include <fstream> //used for writing into file
+#include <vector> //used for multipleTranslations - vector of iterators on words with multiple translations
 
 class dictionary;
 class userInterface;
 
-//one unit of data, dictionary contains two list of those.
+//one unit of data, dictionary contains two list of those - mainData and ImportantData.
 class single {
 public:
 	single(std::string word_, std::set<std::string>& translations_, size_t id_) :word(word_), translations(translations_), score(0), id(id_) {}
@@ -21,7 +20,7 @@ public:
 	size_t id;
 };
 
-//archive doesn't need to remember score or id
+//one unit of data for archive because archive doesn't need to remember neither score nor id
 class archiveSingle {
 public:
 	archiveSingle(std::string word_, std::set<std::string>& translations_) :word(word_), translations(translations_){}
@@ -29,9 +28,10 @@ public:
 	std::set<std::string> translations;
 };
 
-/*main class - deals with dictionary databases. Stores data in "mainData", "importantData" and archive. Builds three indexes:
+/*main class - deals with dictionary databases. Stores data in "mainData", "importantData" and archive. Builds four indexes:
 1) wordToIterator - uses word as key. Used in modyfing for deleting. 
 2+3) intToIteratorMain/intToIteratorImportant - uses integer as key. Used for making tests.
+4) multipleTranslations - vector with iterators to words with multiple translations
 */
 class dictionary {
 public:
@@ -44,8 +44,6 @@ private:
 
 	//testing
 	void createTest(userInterface& ui);
-	void testWord(int index, std::list<single>& data);
-	void synonyms(userInterface& ui);
 
 	//settings
 	unsigned sizeOfTest;
@@ -59,17 +57,18 @@ private:
 	std::list<single> mainData;
 	std::deque<archiveSingle> archive;
 
-	void modify(userInterface& ui);
 	void deleteTranslations(std::string word, std::set<std::string> translations, std::list<single>& collection);
 	void add(std::string word, std::set<std::string>& translations, std::list<single>& whereTo);
 
 
-	//indexes
+	//indices for test
 	std::map<int, std::list<single>::iterator> intToIteratorMain;
 	std::map<int, std::list<single>::iterator> intToIteratorImportant;
 	std::map<std::string, std::list<single>::iterator> wordToIterator;
 
+	//indices for synonyms
 	std::vector< std::list<single>::iterator> multiTranslations;
+	std::map<std::string, int> wordToMultiple;
 
 	//determines if rebuilding of a index is needed.
 	bool gapMain;
